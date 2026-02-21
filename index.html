@@ -72,14 +72,13 @@
     const ctx = canvas.getContext('2d');
     
     // --- GENEL DURUM (STATE) YÖNETİMİ ---
-    // 'MENU', 'PLAYING_NORMAL', 'PLAYING_EXTRA', 'PENALTY_MODE', 'GAMEOVER'
     let gameState = 'MENU'; 
     let width, height;
 
     // --- NORMAL MAÇ DEĞİŞKENLERİ ---
     let scoreRed = 0, scoreBlue = 0;
     let currentTurn = 'red';
-    let totalTime = 180; // 180 saniye normal maç
+    let totalTime = 180;
     let currentTime = 0;
     let timerInterval;
     const friction = 0.985, wallBounciness = 0.6;
@@ -88,18 +87,19 @@
     let dragStartX = 0, dragStartY = 0, currentDragX = 0, currentDragY = 0;
     let isDragging = false;
     let confettiParticles = [];
+    
+    // YENİ: Santra Kuralı için Atış Sayacı
+    let shotsSinceReset = 0; 
 
     // --- PENALTI DEĞİŞKENLERİ ---
     let pScoreRed = 0, pScoreBlue = 0;
     let pShotsRed = 0, pShotsBlue = 0;
-    let penaltyPhase = 'SHOOTER'; // 'SHOOTER', 'KEEPER', 'RESULT'
-    let penaltyTurn = 'red'; // Şutu çeken takım
+    let penaltyPhase = 'SHOOTER'; 
+    let penaltyTurn = 'red';
     let shooterChoice = -1;
     let keeperChoice = -1;
-    let penaltyResultTimer = 0;
-    let penaltyZones = []; // Kaledeki 6 bölgenin koordinatları
+    let penaltyZones = [];
 
-    // Başlangıç Ayarları
     function init() {
         width = canvas.width = window.innerWidth;
         height = canvas.height = window.innerHeight;
@@ -121,7 +121,7 @@
             document.getElementById('penaltyUI').style.display = 'none';
             document.getElementById('scoreBoard').innerText = "0 - 0";
             currentTurn = 'red'; updateTurnUI();
-            totalTime = 180; // 3 dakika
+            totalTime = 180; 
             startTimer(totalTime);
             resetPositions();
         } else if (mode === 'PENALTY_ONLY') {
@@ -170,17 +170,15 @@
                 clearInterval(timerInterval);
                 if (gameState === 'PLAYING_NORMAL') {
                     if (scoreRed === scoreBlue) {
-                        // NORMAL MAÇ BİTTİ BERABERE -> UZATMALAR
                         gameState = 'PLAYING_EXTRA';
                         showBanner("UZATMALAR! (45 Sn)");
                         resetPositions();
-                        startTimer(45); // 45 Saniye Uzatma
+                        startTimer(45);
                     } else {
                         endGame(scoreRed > scoreBlue ? 'red' : 'blue');
                     }
                 } else if (gameState === 'PLAYING_EXTRA') {
                     if (scoreRed === scoreBlue) {
-                        // UZATMALAR BİTTİ BERABERE -> PENALTILAR
                         showBanner("PENALTILARA GİDİLİYOR!");
                         setTimeout(() => { startPenaltyMode(); }, 3000);
                     } else {
@@ -196,7 +194,7 @@
         document.getElementById('timerDisplay').innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     }
 
-    // --- KONFETİ (Önceki koddan) ---
+    // --- KONFETİ ---
     class ConfettiParticle {
         constructor(x, y) {
             this.x = x; this.y = y; this.size = Math.random() * 12 + 6;
@@ -219,7 +217,7 @@
     }
     function triggerConfetti() { for (let i = 0; i < 250; i++) confettiParticles.push(new ConfettiParticle(width / 2, height / 2)); }
 
-    // --- FİZİK VE NESNELER (NORMAL MAÇ İÇİN) ---
+    // --- FİZİK VE NESNELER ---
     class Circle {
         constructor(x, y, radius, color, mass, type) {
             this.x = x; this.y = y; this.vx = 0; this.vy = 0;
@@ -235,20 +233,40 @@
         update() {
             this.x += this.vx; this.y += this.vy; this.vx *= friction; this.vy *= friction;
             if (Math.abs(this.vx) < 0.05) this.vx = 0; if (Math.abs(this.vy) < 0.05) this.vy = 0;
+            
+            // Alt ve Üst Duvarlar
             if (this.y - this.radius < 0) { this.y = this.radius; this.vy *= -wallBounciness;} 
             else if (this.y + this.radius > height) { this.y = height - this.radius; this.vy *= -wallBounciness; }
+            
+            // Sol ve Sağ Duvarlar (Kaleler)
             const goalTop = height/2 - 120; const goalBottom = height/2 + 120;
+            
             if (this.x - this.radius < 0) {
-                if (this.y > goalTop && this.y < goalBottom && this.type === 'ball') handleGoal('blue');
-                else { this.x = this.radius; this.vx *= -wallBounciness; }
+                if (this.y > goalTop && this.y < goalBottom && this.type === 'ball') {
+                    // YENİ: SANTRADAN GOL KONTROLÜ
+                    if (shotsSinceReset <= 1) {
+                        this.x = this.radius; this.vx *= -wallBounciness;
+                        showBanner("SANTRADAN GOL OLMAZ!", 1500);
+                    } else {
+                        handleGoal('blue');
+                    }
+                } else { this.x = this.radius; this.vx *= -wallBounciness; }
             } else if (this.x + this.radius > width) {
-                if (this.y > goalTop && this.y < goalBottom && this.type === 'ball') handleGoal('red');
-                else { this.x = width - this.radius; this.vx *= -wallBounciness; }
+                if (this.y > goalTop && this.y < goalBottom && this.type === 'ball') {
+                    // YENİ: SANTRADAN GOL KONTROLÜ
+                    if (shotsSinceReset <= 1) {
+                        this.x = width - this.radius; this.vx *= -wallBounciness;
+                        showBanner("SANTRADAN GOL OLMAZ!", 1500);
+                    } else {
+                        handleGoal('red');
+                    }
+                } else { this.x = width - this.radius; this.vx *= -wallBounciness; }
             }
         }
     }
 
     function resetPositions() {
+        shotsSinceReset = 0; // YENİ: Yeni başlandığında veya gol olduğunda sayacı sıfırla
         discs = [];
         discs.push(new Circle(width * 0.10, height * 0.5, 35, '#c0392b', 2, 'red'));
         discs.push(new Circle(width * 0.25, height * 0.3, 35, '#e74c3c', 2, 'red'));
@@ -281,8 +299,6 @@
         if(scorer === 'red') scoreRed++; if(scorer === 'blue') scoreBlue++;
         document.getElementById('scoreBoard').innerText = `${scoreRed} - ${scoreBlue}`;
         triggerConfetti();
-        
-        // Eğer uzatmalarda gol olursa (Altın Gol mantığı eklenebilir ama şu an süre sonu bekleniyor)
         currentTurn = (scorer === 'red') ? 'blue' : 'red';
         updateTurnUI();
         resetPositions();
@@ -305,19 +321,13 @@
     }
 
     function calculatePenaltyZones() {
-        // Kaleyi ekranın ortasına yatay olarak yerleştiriyoruz.
-        // 3 Sütun, 2 Satır (Toplam 6 Bölge)
         const goalW = width * 0.6; const goalH = height * 0.5;
         const startX = (width - goalW) / 2; const startY = height * 0.2;
         const cellW = goalW / 3; const cellH = goalH / 2;
-
         penaltyZones = [];
         for (let row = 0; row < 2; row++) {
             for (let col = 0; col < 3; col++) {
-                penaltyZones.push({
-                    x: startX + col * cellW, y: startY + row * cellH,
-                    w: cellW, h: cellH, id: row * 3 + col
-                });
+                penaltyZones.push({ x: startX + col * cellW, y: startY + row * cellH, w: cellW, h: cellH, id: row * 3 + col });
             }
         }
     }
@@ -325,111 +335,64 @@
     function updatePenaltyUI() {
         document.getElementById('penaltyScore').innerText = `Kırmızı ${pScoreRed} - ${pScoreBlue} Mavi`;
         const inst = document.getElementById('penaltyInstruction');
-        
         let teamName = penaltyTurn === 'red' ? "KIRMIZI" : "MAVİ";
         let keeperName = penaltyTurn === 'red' ? "MAVİ" : "KIRMIZI";
         
-        if (penaltyPhase === 'SHOOTER') {
-            inst.innerText = `${teamName} TAKIM (ŞUT): Kaleye bir köşe seç (Dokun)!`;
-            inst.style.borderColor = penaltyTurn === 'red' ? '#e74c3c' : '#3498db';
-        } else if (penaltyPhase === 'KEEPER') {
-            inst.innerText = `${keeperName} TAKIM (KALECİ): Kurtaracağın köşeyi seç!`;
-            inst.style.borderColor = penaltyTurn === 'red' ? '#3498db' : '#e74c3c';
-        } else {
-            inst.innerText = "SONUÇ BEKLENİYOR...";
-            inst.style.borderColor = "#fff";
-        }
+        if (penaltyPhase === 'SHOOTER') { inst.innerText = `${teamName} TAKIM (ŞUT): Kaleye bir köşe seç!`; inst.style.borderColor = penaltyTurn === 'red' ? '#e74c3c' : '#3498db'; } 
+        else if (penaltyPhase === 'KEEPER') { inst.innerText = `${keeperName} TAKIM (KALECİ): Kurtaracağın köşeyi seç!`; inst.style.borderColor = penaltyTurn === 'red' ? '#3498db' : '#e74c3c'; } 
+        else { inst.innerText = "SONUÇ BEKLENİYOR..."; inst.style.borderColor = "#fff"; }
     }
 
     function handlePenaltyClick(x, y) {
-        if (penaltyPhase === 'RESULT') return; // Sonuç gösterilirken tıklanamaz
-
-        // Hangi bölgeye tıklandığını bul
+        if (penaltyPhase === 'RESULT') return; 
         let clickedZone = -1;
         for (let i = 0; i < penaltyZones.length; i++) {
             let z = penaltyZones[i];
-            if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) {
-                clickedZone = i; break;
-            }
+            if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) { clickedZone = i; break; }
         }
-
         if (clickedZone !== -1) {
-            if (penaltyPhase === 'SHOOTER') {
-                shooterChoice = clickedZone;
-                penaltyPhase = 'KEEPER';
-                updatePenaltyUI();
-            } else if (penaltyPhase === 'KEEPER') {
-                keeperChoice = clickedZone;
-                resolvePenalty();
-            }
+            if (penaltyPhase === 'SHOOTER') { shooterChoice = clickedZone; penaltyPhase = 'KEEPER'; updatePenaltyUI(); } 
+            else if (penaltyPhase === 'KEEPER') { keeperChoice = clickedZone; resolvePenalty(); }
         }
     }
 
     function resolvePenalty() {
         penaltyPhase = 'RESULT';
         if (penaltyTurn === 'red') pShotsRed++; else pShotsBlue++;
-
         let isGoal = (shooterChoice !== keeperChoice);
-
         if (isGoal) {
             if (penaltyTurn === 'red') pScoreRed++; else pScoreBlue++;
-            triggerConfetti();
-            showBanner("GOL!!!", 2500);
-        } else {
-            showBanner("KALECİ KURTARDI!", 2500);
-        }
+            triggerConfetti(); showBanner("GOL!!!", 2500);
+        } else { showBanner("KALECİ KURTARDI!", 2500); }
         updatePenaltyUI();
-
-        // 3 saniye sonucu ekranda tut, sonraki tura geç
-        setTimeout(() => {
-            checkPenaltyWinner();
-        }, 3000);
+        setTimeout(() => { checkPenaltyWinner(); }, 3000);
     }
 
     function checkPenaltyWinner() {
-        // Basit 5 atış kontrolü
-        let shotsLeftRed = 5 - pShotsRed;
-        let shotsLeftBlue = 5 - pShotsBlue;
-
-        // Biri diğerini matematiksel olarak geçemeyecek duruma geldiyse (İlk 5 atış içinde)
+        let shotsLeftRed = 5 - pShotsRed; let shotsLeftBlue = 5 - pShotsBlue;
         let redWins = false, blueWins = false;
         if (pShotsRed <= 5 && pShotsBlue <= 5) {
             if (pScoreRed > pScoreBlue + shotsLeftBlue) redWins = true;
             if (pScoreBlue > pScoreRed + shotsLeftRed) blueWins = true;
-            if (pShotsRed === 5 && pShotsBlue === 5 && pScoreRed === pScoreBlue) {
-                // Seri Penaltılar (Uzatma penaltıları)
-            } else if (pShotsRed === 5 && pShotsBlue === 5) {
-                if (pScoreRed > pScoreBlue) redWins = true;
-                if (pScoreBlue > pScoreRed) blueWins = true;
+            if (pShotsRed === 5 && pShotsBlue === 5 && pScoreRed === pScoreBlue) {} 
+            else if (pShotsRed === 5 && pShotsBlue === 5) {
+                if (pScoreRed > pScoreBlue) redWins = true; if (pScoreBlue > pScoreRed) blueWins = true;
             }
         } else {
-            // Ani Ölüm (Seri Penaltılar - İkisi de aynı sayıda atış yapmışsa)
             if (pShotsRed === pShotsBlue) {
-                if (pScoreRed > pScoreBlue) redWins = true;
-                if (pScoreBlue > pScoreRed) blueWins = true;
+                if (pScoreRed > pScoreBlue) redWins = true; if (pScoreBlue > pScoreRed) blueWins = true;
             }
         }
-
-        if (redWins) { endGame('red'); return; }
-        if (blueWins) { endGame('blue'); return; }
-
-        // Sırayı Değiştir (Sırayla atarlar)
-        if (pShotsRed > pShotsBlue) penaltyTurn = 'blue';
-        else penaltyTurn = 'red';
-
-        shooterChoice = -1; keeperChoice = -1;
-        penaltyPhase = 'SHOOTER';
-        updatePenaltyUI();
+        if (redWins) { endGame('red'); return; } if (blueWins) { endGame('blue'); return; }
+        if (pShotsRed > pShotsBlue) penaltyTurn = 'blue'; else penaltyTurn = 'red';
+        shooterChoice = -1; keeperChoice = -1; penaltyPhase = 'SHOOTER'; updatePenaltyUI();
     }
-
 
     // --- ÇİZİM DÖNGÜSÜ ---
     function animate() {
-        // Arka Plan
         ctx.fillStyle = '#4caf50'; ctx.fillRect(0, 0, width, height);
 
         if (gameState === 'PLAYING_NORMAL' || gameState === 'PLAYING_EXTRA') {
-            // Normal Maç Çizimi
             ctx.beginPath(); ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 5;
             ctx.moveTo(width/2, 0); ctx.lineTo(width/2, height); ctx.stroke();
             ctx.beginPath(); ctx.arc(width/2, height/2, 70, 0, Math.PI*2); ctx.stroke();
@@ -450,40 +413,24 @@
             }
         } 
         else if (gameState === 'PENALTY_MODE') {
-            // Penaltı Modu Çizimi (Karşıdan Kale)
             const goalW = width * 0.6; const goalH = height * 0.5;
             const startX = (width - goalW) / 2; const startY = height * 0.2;
 
-            // Kale Direkleri ve Ağları (Basit)
-            ctx.strokeStyle = "#fff"; ctx.lineWidth = 10;
-            ctx.strokeRect(startX, startY, goalW, goalH);
-            
-            // Bölgeleri Çiz
+            ctx.strokeStyle = "#fff"; ctx.lineWidth = 10; ctx.strokeRect(startX, startY, goalW, goalH);
             ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.3)";
             for (let z of penaltyZones) {
-                ctx.strokeRect(z.x, z.y, z.w, z.h);
-                // Hover veya görsel güzellik için hafif renk
-                ctx.fillStyle = "rgba(0,0,0,0.1)";
-                ctx.fillRect(z.x, z.y, z.w, z.h);
+                ctx.strokeRect(z.x, z.y, z.w, z.h); ctx.fillStyle = "rgba(0,0,0,0.1)"; ctx.fillRect(z.x, z.y, z.w, z.h);
             }
 
-            // Eğer sonuç aşamasındaysak Topu ve Kaleciyi göster
             if (penaltyPhase === 'RESULT') {
-                let sz = penaltyZones[shooterChoice];
-                let kz = penaltyZones[keeperChoice];
-
-                // Kaleci Sembolü (Eldiven / Kare)
-                ctx.fillStyle = penaltyTurn === 'red' ? '#3498db' : '#e74c3c'; // Rakiptir kaleci
+                let sz = penaltyZones[shooterChoice]; let kz = penaltyZones[keeperChoice];
+                ctx.fillStyle = penaltyTurn === 'red' ? '#3498db' : '#e74c3c'; 
                 ctx.fillRect(kz.x + kz.w/2 - 40, kz.y + kz.h/2 - 40, 80, 80);
-                
-                // Top Sembolü
-                ctx.beginPath();
-                ctx.arc(sz.x + sz.w/2, sz.y + sz.h/2, 30, 0, Math.PI*2);
+                ctx.beginPath(); ctx.arc(sz.x + sz.w/2, sz.y + sz.h/2, 30, 0, Math.PI*2);
                 ctx.fillStyle = "#ecf0f1"; ctx.fill(); ctx.stroke();
             }
         }
 
-        // Konfetileri Çiz (Her durumda çalışabilir)
         for (let i = confettiParticles.length - 1; i >= 0; i--) {
             confettiParticles[i].update(); confettiParticles[i].draw(ctx);
             if (confettiParticles[i].alpha <= 0 || confettiParticles[i].y > height + 50) confettiParticles.splice(i, 1);
@@ -527,16 +474,17 @@
         if (speed > 1) {
             if(speed > maxSpeed) { vx = (vx/speed) * maxSpeed; vy = (vy/speed) * maxSpeed; }
             selectedDisc.vx = vx; selectedDisc.vy = vy; 
+            
+            shotsSinceReset++; // YENİ: Topa her vurulduğunda atış sayacını artır
+            
             currentTurn = (currentTurn === 'red') ? 'blue' : 'red'; updateTurnUI();
         }
         isDragging = false; selectedDisc = null;
     }
 
-    // Event Dinleyiciler
     window.addEventListener('mousedown', handleStart); window.addEventListener('mousemove', handleMove); window.addEventListener('mouseup', handleEnd);
     window.addEventListener('touchstart', handleStart, {passive: false}); window.addEventListener('touchmove', handleMove, {passive: false}); window.addEventListener('touchend', handleEnd);
 
-    // Döngüyü Başlat
     animate();
 
 </script>
