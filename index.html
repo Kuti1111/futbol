@@ -71,6 +71,9 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     
+    // Yardımcı Matematik Fonksiyonu (Animasyonlar İçin)
+    const lerp = (a, b, t) => a + (b - a) * t;
+
     // --- GENEL DURUM (STATE) YÖNETİMİ ---
     let gameState = 'MENU'; 
     let width, height;
@@ -87,18 +90,17 @@
     let dragStartX = 0, dragStartY = 0, currentDragX = 0, currentDragY = 0;
     let isDragging = false;
     let confettiParticles = [];
-    
-    // YENİ: Santra Kuralı için Atış Sayacı
     let shotsSinceReset = 0; 
 
     // --- PENALTI DEĞİŞKENLERİ ---
     let pScoreRed = 0, pScoreBlue = 0;
     let pShotsRed = 0, pShotsBlue = 0;
-    let penaltyPhase = 'SHOOTER'; 
+    let penaltyPhase = 'SHOOTER'; // 'SHOOTER', 'KEEPER', 'ANIMATION', 'RESULT'
     let penaltyTurn = 'red';
     let shooterChoice = -1;
     let keeperChoice = -1;
     let penaltyZones = [];
+    let animProgress = 0; // Animasyon sayacı (0'dan 1'e)
 
     function init() {
         width = canvas.width = window.innerWidth;
@@ -234,39 +236,27 @@
             this.x += this.vx; this.y += this.vy; this.vx *= friction; this.vy *= friction;
             if (Math.abs(this.vx) < 0.05) this.vx = 0; if (Math.abs(this.vy) < 0.05) this.vy = 0;
             
-            // Alt ve Üst Duvarlar
             if (this.y - this.radius < 0) { this.y = this.radius; this.vy *= -wallBounciness;} 
             else if (this.y + this.radius > height) { this.y = height - this.radius; this.vy *= -wallBounciness; }
             
-            // Sol ve Sağ Duvarlar (Kaleler)
             const goalTop = height/2 - 120; const goalBottom = height/2 + 120;
             
             if (this.x - this.radius < 0) {
                 if (this.y > goalTop && this.y < goalBottom && this.type === 'ball') {
-                    // YENİ: SANTRADAN GOL KONTROLÜ
-                    if (shotsSinceReset <= 1) {
-                        this.x = this.radius; this.vx *= -wallBounciness;
-                        showBanner("SANTRADAN GOL OLMAZ!", 1500);
-                    } else {
-                        handleGoal('blue');
-                    }
+                    if (shotsSinceReset <= 1) { this.x = this.radius; this.vx *= -wallBounciness; showBanner("SANTRADAN GOL OLMAZ!", 1500); } 
+                    else { handleGoal('blue'); }
                 } else { this.x = this.radius; this.vx *= -wallBounciness; }
             } else if (this.x + this.radius > width) {
                 if (this.y > goalTop && this.y < goalBottom && this.type === 'ball') {
-                    // YENİ: SANTRADAN GOL KONTROLÜ
-                    if (shotsSinceReset <= 1) {
-                        this.x = width - this.radius; this.vx *= -wallBounciness;
-                        showBanner("SANTRADAN GOL OLMAZ!", 1500);
-                    } else {
-                        handleGoal('red');
-                    }
+                    if (shotsSinceReset <= 1) { this.x = width - this.radius; this.vx *= -wallBounciness; showBanner("SANTRADAN GOL OLMAZ!", 1500); } 
+                    else { handleGoal('red'); }
                 } else { this.x = width - this.radius; this.vx *= -wallBounciness; }
             }
         }
     }
 
     function resetPositions() {
-        shotsSinceReset = 0; // YENİ: Yeni başlandığında veya gol olduğunda sayacı sıfırla
+        shotsSinceReset = 0; 
         discs = [];
         discs.push(new Circle(width * 0.10, height * 0.5, 35, '#c0392b', 2, 'red'));
         discs.push(new Circle(width * 0.25, height * 0.3, 35, '#e74c3c', 2, 'red'));
@@ -340,11 +330,12 @@
         
         if (penaltyPhase === 'SHOOTER') { inst.innerText = `${teamName} TAKIM (ŞUT): Kaleye bir köşe seç!`; inst.style.borderColor = penaltyTurn === 'red' ? '#e74c3c' : '#3498db'; } 
         else if (penaltyPhase === 'KEEPER') { inst.innerText = `${keeperName} TAKIM (KALECİ): Kurtaracağın köşeyi seç!`; inst.style.borderColor = penaltyTurn === 'red' ? '#3498db' : '#e74c3c'; } 
-        else { inst.innerText = "SONUÇ BEKLENİYOR..."; inst.style.borderColor = "#fff"; }
+        else if (penaltyPhase === 'ANIMATION') { inst.innerText = "ATIŞ YAPILIYOR..."; inst.style.borderColor = "#fff"; }
+        else { inst.innerText = "SONUÇ EKRANI"; inst.style.borderColor = "#fff"; }
     }
 
     function handlePenaltyClick(x, y) {
-        if (penaltyPhase === 'RESULT') return; 
+        if (penaltyPhase === 'RESULT' || penaltyPhase === 'ANIMATION') return; 
         let clickedZone = -1;
         for (let i = 0; i < penaltyZones.length; i++) {
             let z = penaltyZones[i];
@@ -357,14 +348,28 @@
     }
 
     function resolvePenalty() {
+        // Sonucu hemen göstermek yerine önce animasyonu başlat
+        penaltyPhase = 'ANIMATION';
+        animProgress = 0;
+        updatePenaltyUI();
+    }
+
+    // Animasyon bittiğinde çağrılan gerçek sonuç fonksiyonu
+    function finalizePenaltyResult() {
         penaltyPhase = 'RESULT';
         if (penaltyTurn === 'red') pShotsRed++; else pShotsBlue++;
+        
         let isGoal = (shooterChoice !== keeperChoice);
         if (isGoal) {
             if (penaltyTurn === 'red') pScoreRed++; else pScoreBlue++;
             triggerConfetti(); showBanner("GOL!!!", 2500);
-        } else { showBanner("KALECİ KURTARDI!", 2500); }
+        } else { 
+            showBanner("KALECİ KURTARDI!", 2500); 
+        }
+        
         updatePenaltyUI();
+        
+        // 3 saniye sonra diğer atışa geç
         setTimeout(() => { checkPenaltyWinner(); }, 3000);
     }
 
@@ -416,17 +421,67 @@
             const goalW = width * 0.6; const goalH = height * 0.5;
             const startX = (width - goalW) / 2; const startY = height * 0.2;
 
+            // Kale ve Ağ Çizimi
             ctx.strokeStyle = "#fff"; ctx.lineWidth = 10; ctx.strokeRect(startX, startY, goalW, goalH);
             ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.3)";
             for (let z of penaltyZones) {
-                ctx.strokeRect(z.x, z.y, z.w, z.h); ctx.fillStyle = "rgba(0,0,0,0.1)"; ctx.fillRect(z.x, z.y, z.w, z.h);
+                ctx.strokeRect(z.x, z.y, z.w, z.h); 
+                // Eğer seçim aşamasındaysak kutuların belli olması için hafif gri yap
+                if(penaltyPhase === 'SHOOTER' || penaltyPhase === 'KEEPER') {
+                    ctx.fillStyle = "rgba(0,0,0,0.1)"; ctx.fillRect(z.x, z.y, z.w, z.h);
+                }
             }
 
-            if (penaltyPhase === 'RESULT') {
-                let sz = penaltyZones[shooterChoice]; let kz = penaltyZones[keeperChoice];
+            // --- GELİŞMİŞ PENALTI ANİMASYONU ---
+            if (penaltyPhase === 'ANIMATION' || penaltyPhase === 'RESULT') {
+                if (penaltyPhase === 'ANIMATION') {
+                    animProgress += 0.025; // Hız (Yaklaşık 40 karede atış tamamlanır)
+                    if (animProgress >= 1) {
+                        animProgress = 1;
+                        finalizePenaltyResult();
+                    }
+                }
+
+                let t = animProgress;
+                let easeT = t * (2 - t); // Atışın yumuşak yavaşlaması (EaseOutQuad)
+
+                let sz = penaltyZones[shooterChoice]; 
+                let kz = penaltyZones[keeperChoice];
+
+                // Başlangıç Noktaları (Top altta, kaleci kalenin ortasında)
+                let startBallX = width / 2;
+                let startBallY = height * 0.85;
+                let targetBallX = sz.x + sz.w / 2;
+                let targetBallY = sz.y + sz.h / 2;
+
+                let startKeeperX = width / 2;
+                let startKeeperY = startY + goalH - 40;
+                let targetKeeperX = kz.x + kz.w / 2;
+                let targetKeeperY = kz.y + kz.h / 2;
+
+                // Falso (Kavis) Efekti - Hedefe göre top hafif sağa veya sola kavis çizer
+                let curve = (targetBallX - startBallX) * 0.4 * Math.sin(t * Math.PI);
+                
+                let currentBallX = lerp(startBallX, targetBallX, easeT) + curve;
+                let currentBallY = lerp(startBallY, targetBallY, easeT);
+                
+                let currentKeeperX = lerp(startKeeperX, targetKeeperX, easeT);
+                let currentKeeperY = lerp(startKeeperY, targetKeeperY, easeT);
+
+                // Eğer kurtarış yapıldıysa ve animasyon bittiyse top kaleciden seker yere düşer
+                if (penaltyPhase === 'RESULT' && shooterChoice === keeperChoice) {
+                    currentBallX = targetKeeperX;
+                    currentBallY = targetKeeperY + 40; 
+                }
+
+                // Kaleciyi Çiz
                 ctx.fillStyle = penaltyTurn === 'red' ? '#3498db' : '#e74c3c'; 
-                ctx.fillRect(kz.x + kz.w/2 - 40, kz.y + kz.h/2 - 40, 80, 80);
-                ctx.beginPath(); ctx.arc(sz.x + sz.w/2, sz.y + sz.h/2, 30, 0, Math.PI*2);
+                ctx.fillRect(currentKeeperX - 40, currentKeeperY - 40, 80, 80);
+
+                // Topu Çiz (İleri Gittikçe Küçülür - 3D Hissi)
+                ctx.beginPath(); 
+                let currentRadius = lerp(35, 18, easeT); // Top 35'ten 18 boyuta küçülür
+                ctx.arc(currentBallX, currentBallY, currentRadius, 0, Math.PI*2);
                 ctx.fillStyle = "#ecf0f1"; ctx.fill(); ctx.stroke();
             }
         }
@@ -475,7 +530,7 @@
             if(speed > maxSpeed) { vx = (vx/speed) * maxSpeed; vy = (vy/speed) * maxSpeed; }
             selectedDisc.vx = vx; selectedDisc.vy = vy; 
             
-            shotsSinceReset++; // YENİ: Topa her vurulduğunda atış sayacını artır
+            shotsSinceReset++; 
             
             currentTurn = (currentTurn === 'red') ? 'blue' : 'red'; updateTurnUI();
         }
