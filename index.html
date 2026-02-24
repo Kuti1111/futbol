@@ -29,7 +29,7 @@
         .selected-team-right { border-color: #3498db !important; box-shadow: 0 0 15px #3498db; }
         #startMatchBtn { margin-top: 30px; font-size: 40px; padding: 20px 80px; display: none; }
 
-        /* GİZLİ BUTON (Mert Yegin'in Özel İsteği) */
+        /* GİZLİ BUTON */
         #secretBtn { position: absolute; bottom: 10px; right: 10px; font-size: 10px; color: rgba(255,255,255,0.05); cursor: pointer; z-index: 50; }
         #secretBtn:hover { color: rgba(255,255,255,0.2); }
 
@@ -79,7 +79,6 @@
         </div>
     </div>
     <button id="startMatchBtn" class="menu-btn" onclick="startGame()">SAHAYA ÇIK</button>
-    
     <div id="secretBtn" onclick="unlockSecretTeam()">Mert Yeginin Özel İsteği Tıklamanızı Önermem</div>
 </div>
 
@@ -109,7 +108,7 @@
     const lerp = (a, b, t) => a + (b - a) * t;
 
     let gameState = 'MENU'; 
-    let matchMode = 'NORMAL'; // 'NORMAL' veya 'PENALTY'
+    let matchMode = 'NORMAL'; 
     let width, height;
 
     // --- TAKIM VERİTABANI ---
@@ -128,7 +127,6 @@
     ];
 
     let secretUnlocked = false;
-
     let selectedTeam1 = null; 
     let selectedTeam2 = null;
 
@@ -148,27 +146,21 @@
     let pScoreTeam1 = 0, pScoreTeam2 = 0, pShotsTeam1 = 0, pShotsTeam2 = 0;
     let penaltyPhase = 'SHOOTER', penaltyTurn = 'team1', shooterChoice = -1, keeperChoice = -1;
     let penaltyZones = [], animProgress = 0;
+    let lastPenaltyClickTime = 0; // Akıllı tahta hayalet tıklama koruması için
 
     function init() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; calculatePenaltyZones(); }
     window.addEventListener('resize', init); init();
 
-    // --- GİZLİ TAKIM FONKSİYONU ---
     function unlockSecretTeam() {
         if (!secretUnlocked) {
             alert("Gizli İstek Bulundu! Listeye yeni bir takım eklendi...");
             teamData.unshift({ 
-                id: 'MERT', 
-                name: 'İsrail', 
-                c1: '#ffffff', // Beyaz
-                c2: '#2980b9', // Mavi
-                players: ['Neden Yahu', 'Mert Yegin', 'İksir Golemi'] 
+                id: 'MERT', name: 'İsrail', c1: '#ffffff', c2: '#2980b9', players: ['Neden Yahu', 'Mert Yegin', 'İksir Golemi'] 
             });
-            secretUnlocked = true;
-            renderTeamLists(); // Listeyi yenile
+            secretUnlocked = true; renderTeamLists();
         }
     }
 
-    // --- TAKIM SEÇİM EKRANI ---
     function openTeamSelect(mode) {
         matchMode = mode;
         document.getElementById('mainMenu').style.display = 'none';
@@ -184,22 +176,18 @@
         list1.innerHTML = ''; list2.innerHTML = '';
 
         teamData.forEach(team => {
-            // Sol Taraf
             let el1 = document.createElement('div');
             el1.className = `team-item ${selectedTeam1 === team ? 'selected-team-left' : ''}`;
-            el1.style.backgroundColor = team.c1;
-            el1.style.color = team.c2;
+            el1.style.backgroundColor = team.c1; el1.style.color = team.c2;
             if(team.c1 === '#ffffff' && team.c2 === '#ffffff') el1.style.color = '#000';
             if(team.c1 === '#ffffff' && team.c2 === '#bdc3c7') el1.style.color = '#000';
             el1.innerText = team.name;
             el1.onclick = () => { selectedTeam1 = team; checkSelections(); renderTeamLists(); };
             list1.appendChild(el1);
 
-            // Sağ Taraf
             let el2 = document.createElement('div');
             el2.className = `team-item ${selectedTeam2 === team ? 'selected-team-right' : ''}`;
-            el2.style.backgroundColor = team.c1;
-            el2.style.color = team.c2;
+            el2.style.backgroundColor = team.c1; el2.style.color = team.c2;
             if(team.c1 === '#ffffff' && team.c2 === '#ffffff') el2.style.color = '#000';
             if(team.c1 === '#ffffff' && team.c2 === '#bdc3c7') el2.style.color = '#000';
             el2.innerText = team.name;
@@ -208,13 +196,8 @@
         });
     }
 
-    function checkSelections() {
-        if (selectedTeam1 && selectedTeam2) {
-            document.getElementById('startMatchBtn').style.display = 'block';
-        }
-    }
+    function checkSelections() { if (selectedTeam1 && selectedTeam2) document.getElementById('startMatchBtn').style.display = 'block'; }
 
-    // --- MENÜ VE EKRAN YÖNETİMİ ---
     function startGame() {
         document.getElementById('teamSelectScreen').style.display = 'none';
         scoreTeam1 = 0; scoreTeam2 = 0; confettiParticles = [];
@@ -222,10 +205,8 @@
         if (matchMode === 'NORMAL') {
             gameState = 'PLAYING_NORMAL';
             document.getElementById('ui-layer').style.display = 'flex';
-            updateScoreBoard();
-            currentTurn = 'team1'; updateTurnUI(); 
-            totalTime = 180; startTimer(totalTime); 
-            resetPositions();
+            updateScoreBoard(); currentTurn = 'team1'; updateTurnUI(); 
+            totalTime = 180; startTimer(totalTime); resetPositions();
         } else if (matchMode === 'PENALTY') {
             startPenaltyMode();
         }
@@ -246,21 +227,13 @@
 
     function endGame(winner) {
         gameState = 'GAMEOVER'; clearInterval(timerInterval);
-        document.getElementById('ui-layer').style.display = 'none';
-        document.getElementById('penaltyUI').style.display = 'none';
+        document.getElementById('ui-layer').style.display = 'none'; document.getElementById('penaltyUI').style.display = 'none';
         const modal = document.getElementById('gameOverScreen'); const text = document.getElementById('winnerText'); modal.style.display = 'flex';
         
-        if (winner === 'team1') { 
-            text.innerText = `${selectedTeam1.name.toUpperCase()} KAZANDI!`; 
-            text.style.color = selectedTeam1.c1; text.style.textShadow = `0 0 10px ${selectedTeam1.c2}`;
-        }
-        else if (winner === 'team2') { 
-            text.innerText = `${selectedTeam2.name.toUpperCase()} KAZANDI!`; 
-            text.style.color = selectedTeam2.c1; text.style.textShadow = `0 0 10px ${selectedTeam2.c2}`;
-        }
+        if (winner === 'team1') { text.innerText = `${selectedTeam1.name.toUpperCase()} KAZANDI!`; text.style.color = selectedTeam1.c1; text.style.textShadow = `0 0 10px ${selectedTeam1.c2}`; }
+        else if (winner === 'team2') { text.innerText = `${selectedTeam2.name.toUpperCase()} KAZANDI!`; text.style.color = selectedTeam2.c1; text.style.textShadow = `0 0 10px ${selectedTeam2.c2}`; }
     }
 
-    // --- ZAMANLAYICI (Uzatma ve Penaltı Geçişleri) ---
     function startTimer(seconds) {
         clearInterval(timerInterval); currentTime = seconds; updateTimerDisplay();
         timerInterval = setInterval(() => {
@@ -270,21 +243,11 @@
             if (currentTime <= 0) {
                 clearInterval(timerInterval);
                 if (gameState === 'PLAYING_NORMAL') {
-                    if (scoreTeam1 === scoreTeam2) { 
-                        gameState = 'PLAYING_EXTRA'; 
-                        showBanner("UZATMALAR! (45 Sn)"); 
-                        resetPositions(); 
-                        startTimer(45); 
-                    } else { 
-                        endGame(scoreTeam1 > scoreTeam2 ? 'team1' : 'team2'); 
-                    }
+                    if (scoreTeam1 === scoreTeam2) { gameState = 'PLAYING_EXTRA'; showBanner("UZATMALAR! (45 Sn)"); resetPositions(); startTimer(45); } 
+                    else { endGame(scoreTeam1 > scoreTeam2 ? 'team1' : 'team2'); }
                 } else if (gameState === 'PLAYING_EXTRA') {
-                    if (scoreTeam1 === scoreTeam2) { 
-                        showBanner("PENALTILARA GİDİLİYOR!"); 
-                        setTimeout(() => { startPenaltyMode(); }, 3000); 
-                    } else { 
-                        endGame(scoreTeam1 > scoreTeam2 ? 'team1' : 'team2'); 
-                    }
+                    if (scoreTeam1 === scoreTeam2) { showBanner("PENALTILARA GİDİLİYOR!"); setTimeout(() => { startPenaltyMode(); }, 3000); } 
+                    else { endGame(scoreTeam1 > scoreTeam2 ? 'team1' : 'team2'); }
                 }
             }
         }, 1000);
@@ -295,48 +258,35 @@
         document.getElementById('timerDisplay').innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     }
 
-    // --- FİZİK VE NESNELER ---
     class Circle {
         constructor(x, y, radius, mass, type, teamInfo, playerName) { 
-            this.x = x; this.y = y; this.vx = 0; this.vy = 0; 
-            this.radius = radius; this.mass = mass; this.type = type; 
-            this.teamInfo = teamInfo; this.playerName = playerName;
+            this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.radius = radius; this.mass = mass; this.type = type; this.teamInfo = teamInfo; this.playerName = playerName;
         }
         draw() {
             ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            
             if (this.type === 'ball') {
-                ctx.fillStyle = "#ecf0f1"; ctx.fill();
-                ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = "#ecf0f1"; ctx.fill(); ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 2; ctx.stroke();
             } else {
                 ctx.fillStyle = this.teamInfo.c1; ctx.fill();
-                if (this.type === currentTurn && (gameState === 'PLAYING_NORMAL' || gameState === 'PLAYING_EXTRA')) { 
-                    ctx.strokeStyle = "#fff"; ctx.lineWidth = 5; 
-                } else { 
-                    ctx.strokeStyle = this.teamInfo.c2; ctx.lineWidth = 4; 
-                }
+                if (this.type === currentTurn && (gameState === 'PLAYING_NORMAL' || gameState === 'PLAYING_EXTRA')) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 5; } 
+                else { ctx.strokeStyle = this.teamInfo.c2; ctx.lineWidth = 4; }
                 ctx.stroke(); 
                 
                 ctx.fillStyle = this.teamInfo.c2; 
                 if(this.teamInfo.c1 === '#ffffff' && this.teamInfo.c2 === '#bdc3c7') ctx.fillStyle = '#000'; 
                 if(this.teamInfo.c1 === '#ffffff' && this.teamInfo.c2 === '#ffffff') ctx.fillStyle = '#000';
-                if(this.teamInfo.c1 === '#ffffff' && this.teamInfo.c2 === '#2980b9') ctx.fillStyle = '#2980b9'; // İsrail forması için yazı rengi
+                if(this.teamInfo.c1 === '#ffffff' && this.teamInfo.c2 === '#2980b9') ctx.fillStyle = '#2980b9'; 
                 
-                ctx.font = "bold 14px Arial";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(this.playerName, this.x, this.y);
+                ctx.font = "bold 14px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(this.playerName, this.x, this.y);
             }
             ctx.closePath();
         }
         update() {
             this.x += this.vx; this.y += this.vy; this.vx *= friction; this.vy *= friction;
             if (Math.abs(this.vx) < 0.05) this.vx = 0; if (Math.abs(this.vy) < 0.05) this.vy = 0;
-            
             if (this.y - this.radius < 0) { this.y = this.radius; this.vy *= -wallBounciness;} else if (this.y + this.radius > height) { this.y = height - this.radius; this.vy *= -wallBounciness; }
             
             const goalTop = height/2 - 120; const goalBottom = height/2 + 120;
-            
             if (this.x - this.radius < 0) {
                 if (this.y > goalTop && this.y < goalBottom && this.type === 'ball') {
                     if (shotsSinceReset <= 1) { this.x = this.radius; this.vx *= -wallBounciness; showBanner("SANTRADAN GOL OLMAZ!", 1500); } 
@@ -354,8 +304,7 @@
     function handleGoal(scorer) {
         if(scorer === 'team1') scoreTeam1++; else scoreTeam2++;
         updateScoreBoard(); triggerConfetti(); showBanner("GOOOOOL!!!", 2500);
-        currentTurn = (scorer === 'team1') ? 'team2' : 'team1';
-        updateTurnUI(); resetPositions();
+        currentTurn = (scorer === 'team1') ? 'team2' : 'team1'; updateTurnUI(); resetPositions();
     }
 
     function updateScoreBoard() { document.getElementById('scoreBoard').innerText = `${scoreTeam1} - ${scoreTeam2}`; }
@@ -370,8 +319,7 @@
         discs.push(new Circle(width * 0.75, height * 0.3, 38, 2, 'team2', selectedTeam2, selectedTeam2.players[1]));
         discs.push(new Circle(width * 0.75, height * 0.7, 38, 2, 'team2', selectedTeam2, selectedTeam2.players[2]));
         
-        ball = new Circle(width / 2, height / 2, 22, 1, 'ball', null, '');
-        discs.push(ball);
+        ball = new Circle(width / 2, height / 2, 22, 1, 'ball', null, ''); discs.push(ball);
     }
 
     function resolveCollision(p1, p2) {
@@ -391,58 +339,52 @@
 
     function updateTurnUI() { 
         const turnDiv = document.getElementById('turnDisplay'); 
-        if (currentTurn === 'team1') { 
-            turnDiv.innerText = selectedTeam1.name.toUpperCase(); turnDiv.style.background = selectedTeam1.c1; turnDiv.style.color = selectedTeam1.c2;
-        } else { 
-            turnDiv.innerText = selectedTeam2.name.toUpperCase(); turnDiv.style.background = selectedTeam2.c1; turnDiv.style.color = selectedTeam2.c2;
-        } 
+        if (currentTurn === 'team1') { turnDiv.innerText = selectedTeam1.name.toUpperCase(); turnDiv.style.background = selectedTeam1.c1; turnDiv.style.color = selectedTeam1.c2; } 
+        else { turnDiv.innerText = selectedTeam2.name.toUpperCase(); turnDiv.style.background = selectedTeam2.c1; turnDiv.style.color = selectedTeam2.c2; } 
     }
 
-    // --- PENALTI SİSTEMİ ---
+    // --- YENİ 3 BÖLGELİ PENALTI SİSTEMİ ---
     function startPenaltyMode() { 
-        gameState = 'PENALTY_MODE'; 
-        document.getElementById('ui-layer').style.display = 'none'; 
-        document.getElementById('penaltyUI').style.display = 'flex'; 
+        gameState = 'PENALTY_MODE'; document.getElementById('ui-layer').style.display = 'none'; document.getElementById('penaltyUI').style.display = 'flex'; 
         pScoreTeam1 = 0; pScoreTeam2 = 0; pShotsTeam1 = 0; pShotsTeam2 = 0; 
-        penaltyTurn = 'team1'; penaltyPhase = 'SHOOTER'; 
-        updatePenaltyUI(); 
+        penaltyTurn = 'team1'; penaltyPhase = 'SHOOTER'; updatePenaltyUI(); calculatePenaltyZones();
     }
     
     function calculatePenaltyZones() { 
         const goalW = width * 0.6; const goalH = height * 0.5; 
         const startX = (width - goalW) / 2; const startY = height * 0.2; 
-        const cellW = goalW / 3; const cellH = goalH / 2; 
+        const cellW = goalW / 3; const cellH = goalH; // Artık 1 tam satır
         penaltyZones = []; 
-        for (let row = 0; row < 2; row++) { for (let col = 0; col < 3; col++) { penaltyZones.push({ x: startX + col * cellW, y: startY + row * cellH, w: cellW, h: cellH, id: row * 3 + col }); } } 
+        // 3 Bölge: Sol, Orta, Sağ
+        for (let col = 0; col < 3; col++) { penaltyZones.push({ x: startX + col * cellW, y: startY, w: cellW, h: cellH, id: col }); } 
     }
 
     function updatePenaltyUI() { 
         document.getElementById('penaltyScore').innerText = `${selectedTeam1.name} ${pScoreTeam1} - ${pScoreTeam2} ${selectedTeam2.name}`; 
         const inst = document.getElementById('penaltyInstruction'); 
-        
         let activeTeam = penaltyTurn === 'team1' ? selectedTeam1 : selectedTeam2;
         let keeperTeam = penaltyTurn === 'team1' ? selectedTeam2 : selectedTeam1;
 
-        if (penaltyPhase === 'SHOOTER') { 
-            inst.innerText = `${activeTeam.name.toUpperCase()} (ŞUT): Kaleye bir köşe seç!`; 
-            inst.style.borderColor = activeTeam.c1; 
-        } else if (penaltyPhase === 'KEEPER') { 
-            inst.innerText = `${keeperTeam.name.toUpperCase()} (KALECİ): Kurtaracağın köşeyi seç!`; 
-            inst.style.borderColor = keeperTeam.c1; 
-        } else if (penaltyPhase === 'ANIMATION') { 
-            inst.innerText = "ATIŞ YAPILIYOR..."; inst.style.borderColor = "#fff"; 
-        } else { 
-            inst.innerText = "SONUÇ"; inst.style.borderColor = "#fff"; 
-        } 
+        if (penaltyPhase === 'SHOOTER') { inst.innerText = `${activeTeam.name.toUpperCase()} (ŞUT): Kaleye bir bölge seç!`; inst.style.borderColor = activeTeam.c1; } 
+        else if (penaltyPhase === 'KEEPER') { inst.innerText = `${keeperTeam.name.toUpperCase()} (KALECİ): Kurtaracağın bölgeyi seç!`; inst.style.borderColor = keeperTeam.c1; } 
+        else if (penaltyPhase === 'ANIMATION') { inst.innerText = "ATIŞ YAPILIYOR..."; inst.style.borderColor = "#fff"; } 
+        else { inst.innerText = "SONUÇ"; inst.style.borderColor = "#fff"; } 
     }
 
     function handlePenaltyClick(x, y) { 
         if (penaltyPhase === 'RESULT' || penaltyPhase === 'ANIMATION') return; 
+        
+        // AKILLI TAHTA ÇİFT TIKLAMA (GHOST CLICK) KORUMASI
+        let now = Date.now();
+        if (now - lastPenaltyClickTime < 400) return; // 400ms içinde yapılan ikinci algılamayı yok say
+        lastPenaltyClickTime = now;
+
         let clickedZone = -1; 
         for (let i = 0; i < penaltyZones.length; i++) { 
             let z = penaltyZones[i]; 
             if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) { clickedZone = i; break; } 
         } 
+        
         if (clickedZone !== -1) { 
             if (penaltyPhase === 'SHOOTER') { shooterChoice = clickedZone; penaltyPhase = 'KEEPER'; updatePenaltyUI(); } 
             else if (penaltyPhase === 'KEEPER') { keeperChoice = clickedZone; resolvePenaltyMode(); } 
@@ -452,44 +394,26 @@
     function resolvePenaltyMode() { penaltyPhase = 'ANIMATION'; animProgress = 0; updatePenaltyUI(); }
 
     function finalizePenaltyResult() { 
-        penaltyPhase = 'RESULT'; 
-        if (penaltyTurn === 'team1') pShotsTeam1++; else pShotsTeam2++; 
+        penaltyPhase = 'RESULT'; if (penaltyTurn === 'team1') pShotsTeam1++; else pShotsTeam2++; 
         let isGoal = (shooterChoice !== keeperChoice); 
-        if (isGoal) { 
-            if (penaltyTurn === 'team1') pScoreTeam1++; else pScoreTeam2++; 
-            triggerConfetti(); showBanner("GOL!!!", 2500); 
-        } else { 
-            showBanner("KALECİ KURTARDI!", 2500); 
-        } 
-        updatePenaltyUI(); 
-        setTimeout(() => { checkPenaltyWinner(); }, 3000); 
+        if (isGoal) { if (penaltyTurn === 'team1') pScoreTeam1++; else pScoreTeam2++; triggerConfetti(); showBanner("GOL!!!", 2500); } 
+        else { showBanner("KALECİ KURTARDI!", 2500); } 
+        updatePenaltyUI(); setTimeout(() => { checkPenaltyWinner(); }, 3000); 
     }
 
     function checkPenaltyWinner() { 
-        let shotsLeft1 = 5 - pShotsTeam1; let shotsLeft2 = 5 - pShotsTeam2; 
-        let team1Wins = false, team2Wins = false; 
+        let shotsLeft1 = 5 - pShotsTeam1; let shotsLeft2 = 5 - pShotsTeam2; let team1Wins = false, team2Wins = false; 
         if (pShotsTeam1 <= 5 && pShotsTeam2 <= 5) { 
             if (pScoreTeam1 > pScoreTeam2 + shotsLeft2) team1Wins = true; 
             if (pScoreTeam2 > pScoreTeam1 + shotsLeft1) team2Wins = true; 
-            if (pShotsTeam1 === 5 && pShotsTeam2 === 5 && pScoreTeam1 !== pScoreTeam2) {
-                if (pScoreTeam1 > pScoreTeam2) team1Wins = true; 
-                else team2Wins = true;
-            }
-        } else { 
-            if (pShotsTeam1 === pShotsTeam2) { 
-                if (pScoreTeam1 > pScoreTeam2) team1Wins = true; 
-                if (pScoreTeam2 > pScoreTeam1) team2Wins = true; 
-            } 
-        } 
+            if (pShotsTeam1 === 5 && pShotsTeam2 === 5 && pScoreTeam1 !== pScoreTeam2) { if (pScoreTeam1 > pScoreTeam2) team1Wins = true; else team2Wins = true; }
+        } else { if (pShotsTeam1 === pShotsTeam2) { if (pScoreTeam1 > pScoreTeam2) team1Wins = true; if (pScoreTeam2 > pScoreTeam1) team2Wins = true; } } 
         
-        if (team1Wins) { endGame('team1'); return; } 
-        if (team2Wins) { endGame('team2'); return; } 
+        if (team1Wins) { endGame('team1'); return; } if (team2Wins) { endGame('team2'); return; } 
         
-        penaltyTurn = (pShotsTeam1 > pShotsTeam2) ? 'team2' : 'team1'; 
-        shooterChoice = -1; keeperChoice = -1; penaltyPhase = 'SHOOTER'; updatePenaltyUI(); 
+        penaltyTurn = (pShotsTeam1 > pShotsTeam2) ? 'team2' : 'team1'; shooterChoice = -1; keeperChoice = -1; penaltyPhase = 'SHOOTER'; updatePenaltyUI(); 
     }
 
-    // --- KONFETİ ---
     class ConfettiParticle {
         constructor(x, y) {
             this.x = x; this.y = y; this.size = Math.random() * 12 + 6;
@@ -505,8 +429,6 @@
     }
     function triggerConfetti() { for (let i = 0; i < 250; i++) confettiParticles.push(new ConfettiParticle(width / 2, height / 2)); }
 
-
-    // --- ORTAK SAHA ÇİZİMİ ---
     function drawField() {
         ctx.beginPath(); ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 5;
         ctx.moveTo(width/2, 0); ctx.lineTo(width/2, height); ctx.stroke();
@@ -515,13 +437,11 @@
         ctx.fillRect(0, height/2 - goalH/2, 15, goalH); ctx.fillRect(width-15, height/2 - goalH/2, 15, goalH);
     }
 
-    // --- ÇİZİM DÖNGÜSÜ ---
     function animate() {
         ctx.fillStyle = '#4caf50'; ctx.fillRect(0, 0, width, height);
 
         if (gameState === 'PLAYING_NORMAL' || gameState === 'PLAYING_EXTRA') {
             drawField();
-
             if (isDragging && selectedDisc) {
                 ctx.beginPath(); ctx.moveTo(selectedDisc.x, selectedDisc.y);
                 const dx = dragStartX - currentDragX; const dy = dragStartY - currentDragY;
@@ -529,18 +449,26 @@
                 ctx.strokeStyle = (currentTurn === 'team1') ? selectedTeam1.c2 : selectedTeam2.c2;
                 ctx.lineWidth = 6; ctx.setLineDash([15, 10]); ctx.stroke(); ctx.setLineDash([]);
             }
-
             for (let i = 0; i < discs.length; i++) {
                 discs[i].update(); discs[i].draw();
                 for (let j = i + 1; j < discs.length; j++) resolveCollision(discs[i], discs[j]);
             }
         } 
         else if (gameState === 'PENALTY_MODE') {
-            const goalW = width * 0.6; const goalH = height * 0.5;
-            const startX = (width - goalW) / 2; const startY = height * 0.2;
+            const goalW = width * 0.6; const goalH = height * 0.5; const startX = (width - goalW) / 2; const startY = height * 0.2;
             ctx.strokeStyle = "#fff"; ctx.lineWidth = 10; ctx.strokeRect(startX, startY, goalW, goalH);
             ctx.lineWidth = 3; ctx.strokeStyle = "rgba(255,255,255,0.3)";
-            for (let z of penaltyZones) { ctx.strokeRect(z.x, z.y, z.w, z.h); if(penaltyPhase === 'SHOOTER' || penaltyPhase === 'KEEPER') { ctx.fillStyle = "rgba(0,0,0,0.1)"; ctx.fillRect(z.x, z.y, z.w, z.h); } }
+            
+            const bolgeIsimleri = ["SOL", "ORTA", "SAĞ"];
+            for (let i = 0; i < penaltyZones.length; i++) { 
+                let z = penaltyZones[i]; ctx.strokeRect(z.x, z.y, z.w, z.h); 
+                if(penaltyPhase === 'SHOOTER' || penaltyPhase === 'KEEPER') { 
+                    ctx.fillStyle = "rgba(0,0,0,0.1)"; ctx.fillRect(z.x, z.y, z.w, z.h); 
+                    // Bölge isimlerini yazdır
+                    ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "bold 40px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                    ctx.fillText(bolgeIsimleri[i], z.x + z.w/2, z.y + z.h/2);
+                } 
+            }
 
             if (penaltyPhase === 'ANIMATION' || penaltyPhase === 'RESULT') {
                 if (penaltyPhase === 'ANIMATION') { animProgress += 0.025; if (animProgress >= 1) { animProgress = 1; finalizePenaltyResult(); } }
@@ -554,11 +482,9 @@
                 
                 if (penaltyPhase === 'RESULT' && shooterChoice === keeperChoice) { currentBallX = targetKeeperX; currentBallY = targetKeeperY + 40; }
                 
-                // Kaleci Rengi
                 let keeperColor = penaltyTurn === 'team1' ? selectedTeam2.c1 : selectedTeam1.c1;
                 ctx.fillStyle = keeperColor; ctx.fillRect(currentKeeperX - 40, currentKeeperY - 40, 80, 80);
                 
-                // Top
                 ctx.beginPath(); let currentRadius = lerp(35, 18, easeT); ctx.arc(currentBallX, currentBallY, currentRadius, 0, Math.PI*2);
                 ctx.fillStyle = "#ecf0f1"; ctx.fill(); ctx.stroke();
             }
@@ -572,7 +498,6 @@
         requestAnimationFrame(animate);
     }
 
-    // --- INPUT (GİRİŞ) YÖNETİMİ ---
     function getPos(e) { if(e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY }; return { x: e.clientX, y: e.clientY }; }
     function handleStart(e) {
         if (gameState === 'MENU' || gameState === 'GAMEOVER') return;
@@ -594,12 +519,14 @@
         let vx = dx * power; let vy = dy * power; const speed = Math.sqrt(vx*vx + vy*vy);
         if (speed > 1) {
             if(speed > maxSpeed) { vx = (vx/speed) * maxSpeed; vy = (vy/speed) * maxSpeed; }
-            selectedDisc.vx = vx; selectedDisc.vy = vy; shotsSinceReset++; 
-            currentTurn = (currentTurn === 'team1') ? 'team2' : 'team1'; updateTurnUI();
+            selectedDisc.vx = vx; selectedDisc.vy = vy; shotsSinceReset++; currentTurn = (currentTurn === 'team1') ? 'team2' : 'team1'; updateTurnUI();
         }
         isDragging = false; selectedDisc = null;
     }
+    
+    // Mouse Eventleri
     window.addEventListener('mousedown', handleStart); window.addEventListener('mousemove', handleMove); window.addEventListener('mouseup', handleEnd);
+    // Touch Eventleri (Mobilde ve Akıllı Tahtada Ghost Click'i önlemek için e.preventDefault eklendiğinde scroll bozulabileceğinden pasif true bırakıldı)
     window.addEventListener('touchstart', handleStart, {passive: false}); window.addEventListener('touchmove', handleMove, {passive: false}); window.addEventListener('touchend', handleEnd);
 
     animate();
