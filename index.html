@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Akıllı Tahta Parmak Futbolu - Turnuva Sürümü</title>
+    <title>Akıllı Tahta Parmak Futbolu - Konyaspor Edition</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #2c3e50; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; user-select: none; }
         canvas { display: block; background: #4caf50; }
@@ -29,9 +29,12 @@
         .selected-team-right { border-color: #3498db !important; box-shadow: 0 0 15px #3498db; }
         #startMatchBtn { margin-top: 30px; font-size: 40px; padding: 20px 80px; display: none; }
 
-        /* GİZLİ BUTON */
+        /* GİZLİ BUTONLAR */
         #secretBtn { position: absolute; bottom: 10px; right: 10px; font-size: 10px; color: rgba(255,255,255,0.05); cursor: pointer; z-index: 50; }
         #secretBtn:hover { color: rgba(255,255,255,0.2); }
+        
+        #secretMusicBtn { position: absolute; top: 10px; left: 10px; font-size: 10px; color: rgba(255,255,255,0.05); cursor: pointer; z-index: 50; }
+        #secretMusicBtn:hover { color: rgba(255,255,255,0.2); }
 
         /* Oyun İçi Arayüz */
         #ui-layer { position: absolute; top: 0; width: 100%; height: 80px; background: rgba(0,0,0,0.6); display: none; justify-content: space-between; align-items: center; padding: 0 50px; box-sizing: border-box; color: white; pointer-events: none; z-index: 5; }
@@ -67,6 +70,7 @@
 </div>
 
 <div id="teamSelectScreen" class="screen">
+    <div id="secretMusicBtn" onclick="toggleGoalMusic()">Gol Müziklerini Aç (tehlikeli,riskli,sıkıntılı)</div>
     <h1 style="margin: 10px 0; font-size: 50px;">TAKIMLARINI SEÇ</h1>
     <div class="team-container">
         <div class="team-column">
@@ -111,22 +115,26 @@
     let matchMode = 'NORMAL'; 
     let width, height;
 
-    // --- TAKIM VERİTABANI ---
+    // --- TAKIM VERİTABANI VE GOL MÜZİKLERİ ---
+    const defaultCheer = 'https://actions.google.com/sounds/v1/crowds/crowd_cheer.ogg';
     let teamData = [
-        { id: 'FB', name: 'Fenerbahçe', c1: '#000080', c2: '#f1c40f', players: ['Kerem A.', 'Talisca', 'Asensio'] },
-        { id: 'GS', name: 'Galatasaray', c1: '#c0392b', c2: '#f39c12', players: ['Noa Lang', 'Osimhen', 'Sane'] },
-        { id: 'BJK', name: 'Beşiktaş', c1: '#000000', c2: '#ffffff', players: ['Cerny', 'H. Oh', 'Cengiz'] },
-        { id: 'TS', name: 'Trabzonspor', c1: '#800000', c2: '#87cefa', players: ['F. Augusto', 'Onuachu', 'E. Muci'] },
-        { id: 'RMA', name: 'Real Madrid', c1: '#ffffff', c2: '#bdc3c7', players: ['Vini Jr', 'Mbappe', 'Arda G.'] },
-        { id: 'BAR', name: 'Barcelona', c1: '#c0392b', c2: '#2980b9', players: ['Raphinha', 'Lewa', 'Yamal'] },
-        { id: 'MCI', name: 'Man City', c1: '#87cefa', c2: '#ffffff', players: ['Cherki', 'Haaland', 'Doku'] },
-        { id: 'ARS', name: 'Arsenal', c1: '#e74c3c', c2: '#ffffff', players: ['Odegaard', 'Gyökeres', 'Saka'] },
-        { id: 'INT', name: 'Inter', c1: '#000000', c2: '#2980b9', players: ['Hakan Ç.', 'Lautaro', 'Barella'] },
-        { id: 'BAY', name: 'Bayern Münih', c1: '#ffffff', c2: '#e74c3c', players: ['L. Diaz', 'H. Kane', 'Olise'] },
-        { id: 'PSG', name: 'PSG', c1: '#000080', c2: '#e74c3c', players: ['Kvara', 'Dembele', 'D. Doue'] }
+        { id: 'KON', name: 'Konyaspor', c1: '#005A31', c2: '#ffffff', players: ['Adil D.', 'Blaz Kramer', 'Enis Bardhi'], goalMusic: "konyaspor.mp3" },
+        { id: 'FB', name: 'Fenerbahçe', c1: '#000080', c2: '#f1c40f', players: ['Kerem A.', 'Talisca', 'Asensio'], goalMusic: 'fb.mp3' },
+        { id: 'GS', name: 'Galatasaray', c1: '#c0392b', c2: '#f39c12', players: ['Noa Lang', 'Osimhen', 'Sane'], goalMusic: "gs.mp3" },
+        { id: 'BJK', name: 'Beşiktaş', c1: '#000000', c2: '#ffffff', players: ['Cerny', 'H. Oh', 'Cengiz'], goalMusic: "bjk.mp3" },
+        { id: 'TS', name: 'Trabzonspor', c1: '#800000', c2: '#87cefa', players: ['F. Augusto', 'Onuachu', 'E. Muci'], goalMusic: "ts.mp3" },
+        { id: 'RMA', name: 'Real Madrid', c1: '#ffffff', c2: '#bdc3c7', players: ['Vini Jr', 'Mbappe', 'Arda G.'], goalMusic: defaultCheer },
+        { id: 'BAR', name: 'Barcelona', c1: '#c0392b', c2: '#2980b9', players: ['Raphinha', 'Lewa', 'Yamal'], goalMusic: defaultCheer },
+        { id: 'MCI', name: 'Man City', c1: '#87cefa', c2: '#ffffff', players: ['Cherki', 'Haaland', 'Doku'], goalMusic: defaultCheer },
+        { id: 'ARS', name: 'Arsenal', c1: '#e74c3c', c2: '#ffffff', players: ['Odegaard', 'Gyökeres', 'Saka'], goalMusic: defaultCheer },
+        { id: 'INT', name: 'Inter', c1: '#000000', c2: '#2980b9', players: ['Hakan Ç.', 'Lautaro', 'Barella'], goalMusic: defaultCheer },
+        { id: 'BAY', name: 'Bayern Münih', c1: '#ffffff', c2: '#e74c3c', players: ['L. Diaz', 'H. Kane', 'Olise'], goalMusic: defaultCheer },
+        { id: 'PSG', name: 'PSG', c1: '#000080', c2: '#e74c3c', players: ['Kvara', 'Dembele', 'D. Doue'], goalMusic: defaultCheer }
     ];
 
     let secretUnlocked = false;
+    let goalMusicEnabled = false;
+    let currentAudio = null;
     let selectedTeam1 = null; 
     let selectedTeam2 = null;
 
@@ -146,7 +154,7 @@
     let pScoreTeam1 = 0, pScoreTeam2 = 0, pShotsTeam1 = 0, pShotsTeam2 = 0;
     let penaltyPhase = 'SHOOTER', penaltyTurn = 'team1', shooterChoice = -1, keeperChoice = -1;
     let penaltyZones = [], animProgress = 0;
-    let lastPenaltyClickTime = 0; // Akıllı tahta hayalet tıklama koruması için
+    let lastPenaltyClickTime = 0; 
 
     function init() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; calculatePenaltyZones(); }
     window.addEventListener('resize', init); init();
@@ -155,10 +163,38 @@
         if (!secretUnlocked) {
             alert("Gizli İstek Bulundu! Listeye yeni bir takım eklendi...");
             teamData.unshift({ 
-                id: 'MERT', name: 'İsrail', c1: '#ffffff', c2: '#2980b9', players: ['Neden Yahu', 'Mert Yegin', 'Melih Abuaf'] 
+                id: 'MERT', name: 'İsrail', c1: '#ffffff', c2: '#2980b9', players: ['Neden Yahu', 'Mert Yegin', 'İksir Golemi'], goalMusic: "israil.mp3" 
             });
             secretUnlocked = true; renderTeamLists();
         }
+    }
+
+    // GOL MÜZİĞİNİ AKTİF ETME
+    function toggleGoalMusic() {
+        goalMusicEnabled = !goalMusicEnabled;
+        if (goalMusicEnabled) {
+            alert("⚠️ TEHLİKE: Gol Müzikleri Aktif Edildi! Olası ses patlamalarına hazır olun.");
+            document.getElementById('secretMusicBtn').style.color = "#e74c3c"; // Aktif olduğunu belli et
+        } else {
+            alert("Gol müzikleri kapatıldı.");
+            document.getElementById('secretMusicBtn').style.color = "rgba(255,255,255,0.05)";
+            if (currentAudio) currentAudio.pause();
+        }
+    }
+
+    // MÜZİK ÇALMA FONKSİYONU (5 Saniye)
+    function playGoalMusic(team) {
+        if (!goalMusicEnabled || !team.goalMusic) return;
+        if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+        
+        currentAudio = new Audio(team.goalMusic);
+        currentAudio.volume = 0.6; // Çok patlamasın diye
+        currentAudio.play().catch(e => console.log("Otomatik ses oynatma tarayıcı tarafından engellendi."));
+        
+        // 5 Saniye sonra sesi durdur
+        setTimeout(() => {
+            if (currentAudio) { currentAudio.pause(); }
+        }, 15000); 
     }
 
     function openTeamSelect(mode) {
@@ -201,6 +237,7 @@
     function startGame() {
         document.getElementById('teamSelectScreen').style.display = 'none';
         scoreTeam1 = 0; scoreTeam2 = 0; confettiParticles = [];
+        if (currentAudio) currentAudio.pause();
 
         if (matchMode === 'NORMAL') {
             gameState = 'PLAYING_NORMAL';
@@ -218,6 +255,7 @@
         document.getElementById('penaltyUI').style.display = 'none';
         document.getElementById('mainMenu').style.display = 'flex';
         gameState = 'MENU';
+        if (currentAudio) currentAudio.pause();
     }
 
     function showBanner(text, duration = 2000) {
@@ -278,6 +316,12 @@
                 if(this.teamInfo.c1 === '#ffffff' && this.teamInfo.c2 === '#2980b9') ctx.fillStyle = '#2980b9'; 
                 
                 ctx.font = "bold 14px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(this.playerName, this.x, this.y);
+
+                // --- ADİL D. İÇİN KRAL TACI ---
+                if (this.playerName === 'Adil D.') {
+                    ctx.font = "26px Arial"; 
+                    ctx.fillText("👑", this.x, this.y - 45); 
+                }
             }
             ctx.closePath();
         }
@@ -302,7 +346,13 @@
     }
 
     function handleGoal(scorer) {
-        if(scorer === 'team1') scoreTeam1++; else scoreTeam2++;
+        if(scorer === 'team1') {
+            scoreTeam1++;
+            playGoalMusic(selectedTeam1);
+        } else {
+            scoreTeam2++;
+            playGoalMusic(selectedTeam2);
+        }
         updateScoreBoard(); triggerConfetti(); showBanner("GOOOOOL!!!", 2500);
         currentTurn = (scorer === 'team1') ? 'team2' : 'team1'; updateTurnUI(); resetPositions();
     }
@@ -353,9 +403,8 @@
     function calculatePenaltyZones() { 
         const goalW = width * 0.6; const goalH = height * 0.5; 
         const startX = (width - goalW) / 2; const startY = height * 0.2; 
-        const cellW = goalW / 3; const cellH = goalH; // Artık 1 tam satır
+        const cellW = goalW / 3; const cellH = goalH; 
         penaltyZones = []; 
-        // 3 Bölge: Sol, Orta, Sağ
         for (let col = 0; col < 3; col++) { penaltyZones.push({ x: startX + col * cellW, y: startY, w: cellW, h: cellH, id: col }); } 
     }
 
@@ -374,9 +423,8 @@
     function handlePenaltyClick(x, y) { 
         if (penaltyPhase === 'RESULT' || penaltyPhase === 'ANIMATION') return; 
         
-        // AKILLI TAHTA ÇİFT TIKLAMA (GHOST CLICK) KORUMASI
         let now = Date.now();
-        if (now - lastPenaltyClickTime < 400) return; // 400ms içinde yapılan ikinci algılamayı yok say
+        if (now - lastPenaltyClickTime < 400) return; 
         lastPenaltyClickTime = now;
 
         let clickedZone = -1; 
@@ -396,8 +444,20 @@
     function finalizePenaltyResult() { 
         penaltyPhase = 'RESULT'; if (penaltyTurn === 'team1') pShotsTeam1++; else pShotsTeam2++; 
         let isGoal = (shooterChoice !== keeperChoice); 
-        if (isGoal) { if (penaltyTurn === 'team1') pScoreTeam1++; else pScoreTeam2++; triggerConfetti(); showBanner("GOL!!!", 2500); } 
-        else { showBanner("KALECİ KURTARDI!", 2500); } 
+        
+        if (isGoal) { 
+            if (penaltyTurn === 'team1') {
+                pScoreTeam1++;
+                playGoalMusic(selectedTeam1);
+            } else {
+                pScoreTeam2++;
+                playGoalMusic(selectedTeam2);
+            }
+            triggerConfetti(); showBanner("GOL!!!", 2500); 
+        } else { 
+            showBanner("KALECİ KURTARDI!", 2500); 
+        } 
+        
         updatePenaltyUI(); setTimeout(() => { checkPenaltyWinner(); }, 3000); 
     }
 
@@ -464,7 +524,6 @@
                 let z = penaltyZones[i]; ctx.strokeRect(z.x, z.y, z.w, z.h); 
                 if(penaltyPhase === 'SHOOTER' || penaltyPhase === 'KEEPER') { 
                     ctx.fillStyle = "rgba(0,0,0,0.1)"; ctx.fillRect(z.x, z.y, z.w, z.h); 
-                    // Bölge isimlerini yazdır
                     ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "bold 40px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
                     ctx.fillText(bolgeIsimleri[i], z.x + z.w/2, z.y + z.h/2);
                 } 
@@ -526,7 +585,7 @@
     
     // Mouse Eventleri
     window.addEventListener('mousedown', handleStart); window.addEventListener('mousemove', handleMove); window.addEventListener('mouseup', handleEnd);
-    // Touch Eventleri (Mobilde ve Akıllı Tahtada Ghost Click'i önlemek için e.preventDefault eklendiğinde scroll bozulabileceğinden pasif true bırakıldı)
+    // Touch Eventleri
     window.addEventListener('touchstart', handleStart, {passive: false}); window.addEventListener('touchmove', handleMove, {passive: false}); window.addEventListener('touchend', handleEnd);
 
     animate();
