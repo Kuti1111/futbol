@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Akıllı Tahta Parmak Futbolu - Konyaspor Edition</title>
+    <title>Akıllı Tahta Parmak Futbolu</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #2c3e50; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; user-select: none; }
         canvas { display: block; background: #4caf50; }
@@ -118,13 +118,13 @@
     // --- TAKIM VERİTABANI VE GOL MÜZİKLERİ ---
     const defaultCheer = 'https://actions.google.com/sounds/v1/crowds/crowd_cheer.ogg';
     let teamData = [
-        { id: 'KON', name: 'Konyaspor', c1: '#005A31', c2: '#ffffff', players: ['Adil D.', 'Blaz Kramer', 'Enis Bardhi'], goalMusic: "konyaspor.mp3" },
-        { id: 'FB', name: 'Fenerbahçe', c1: '#000080', c2: '#f1c40f', players: ['Kerem A.', 'Talisca', 'Asensio'], goalMusic: 'fb.mp3' },
-        { id: 'GS', name: 'Galatasaray', c1: '#c0392b', c2: '#f39c12', players: ['Noa Lang', 'Osimhen', 'Sane'], goalMusic: "gs.mp3" },
-        { id: 'BJK', name: 'Beşiktaş', c1: '#000000', c2: '#ffffff', players: ['Cerny', 'H. Oh', 'Cengiz'], goalMusic: "bjk.mp3" },
-        { id: 'TS', name: 'Trabzonspor', c1: '#800000', c2: '#87cefa', players: ['F. Augusto', 'Onuachu', 'E. Muci'], goalMusic: "ts.mp3" },
+        { id: 'KON', name: 'ELV #DOM', c1: '#8B0000', c2: '#ffffff', players: ['kuti1111', 'hırslı_motif', 'Arif Burak Kurt'], goalMusic: "elv.mp3" },
+        { id: 'FB', name: 'Fenerbahçe', c1: '#000080', c2: '#f1c40f', players: ['Asensio', 'Muriqi', 'Greenwood'], goalMusic: 'fb.mp3' },
+        { id: 'GS', name: 'Galatasaray', c1: '#c0392b', c2: '#f39c12', players: ['Leao', 'Osimhen', 'Sane'], goalMusic: "gs.mp3" },
+        { id: 'BJK', name: 'Beşiktaş', c1: '#000000', c2: '#ffffff', players: ['Trossard', 'Vlahovic', 'Poku'], goalMusic: "bjk.mp3" },
+        { id: 'TS', name: 'Trabzonspor', c1: '#800000', c2: '#87cefa', players: ['E. Muci', 'Onuachu', 'Salah'], goalMusic: "ts.mp3" },
         { id: 'RMA', name: 'Real Madrid', c1: '#ffffff', c2: '#bdc3c7', players: ['Vini Jr', 'Mbappe', 'Arda G.'], goalMusic: defaultCheer },
-        { id: 'BAR', name: 'Barcelona', c1: '#c0392b', c2: '#2980b9', players: ['Raphinha', 'Lewa', 'Yamal'], goalMusic: defaultCheer },
+        { id: 'BAR', name: 'Barcelona', c1: '#c0392b', c2: '#2980b9', players: ['Gordon', 'Raphinha', 'Yamal'], goalMusic: defaultCheer },
         { id: 'MCI', name: 'Man City', c1: '#87cefa', c2: '#ffffff', players: ['Cherki', 'Haaland', 'Doku'], goalMusic: defaultCheer },
         { id: 'ARS', name: 'Arsenal', c1: '#e74c3c', c2: '#ffffff', players: ['Odegaard', 'Gyökeres', 'Saka'], goalMusic: defaultCheer },
         { id: 'INT', name: 'Inter', c1: '#000000', c2: '#2980b9', players: ['Hakan Ç.', 'Lautaro', 'Barella'], goalMusic: defaultCheer },
@@ -318,7 +318,7 @@
                 ctx.font = "bold 14px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(this.playerName, this.x, this.y);
 
                 // --- ADİL D. İÇİN KRAL TACI ---
-                if (this.playerName === 'Adil D.') {
+                if (this.playerName === 'kuti1111') {
                     ctx.font = "26px Arial"; 
                     ctx.fillText("👑", this.x, this.y - 45); 
                 }
